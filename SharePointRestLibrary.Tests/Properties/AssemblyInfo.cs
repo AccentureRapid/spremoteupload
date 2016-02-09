@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("UploadFiles")]
+[assembly: AssemblyTitle("SharePointRestLibrary.Tests")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("UploadFiles")]
+[assembly: AssemblyProduct("SharePointRestLibrary.Tests")]
 [assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("b7a4f75a-62ce-4b40-91b1-a5e48621905b")]
+[assembly: Guid("aad54b30-e8a8-43cc-a084-9af97e08690f")]
 
 // Version information for an assembly consists of the following four values:
 //
