@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using SharePointRestLibrary.Extensions;
 
 namespace SharePointRestLibrary.SharePoint
 {
@@ -17,6 +18,7 @@ namespace SharePointRestLibrary.SharePoint
         private string _username;
         private string _password;
         private string _baseUrl;
+        private IDictionary<string, IEnumerable<string>> _filesByLibraryCache;
 
         public SharePointFactFetcher(string username, string password, string baseUrl)
         {
@@ -25,11 +27,18 @@ namespace SharePointRestLibrary.SharePoint
             _baseUrl = baseUrl;
         }
 
+        public bool SPFileExistInLibrary(string libraryTitle, string fileName, bool refreshCache = false)
+        {
+            if (!_filesByLibraryCache.ContainsKey(libraryTitle) || refreshCache)
+                GetFileCountByLocation(libraryTitle);
+
+            return _filesByLibraryCache[libraryTitle].Contains(fileName, StringComparer.InvariantCultureIgnoreCase);
+        }
 
         public double GetFileCountByLocation(string libraryID)
         {
             var resource = string.Format("/_api/web/lists/getByTitle('{0}')/itemCount", libraryID);
-            var response = ExecuteGet(resource);
+            var response = this.ExecuteGet(resource, _baseUrl,_username, _password);
 
             var wrapper = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
             var value = JsonConvert.DeserializeObject<Dictionary<string, double>>(wrapper.Values.First().ToString());
@@ -40,46 +49,36 @@ namespace SharePointRestLibrary.SharePoint
         public IEnumerable<string> GetFilesByLocation(string libraryTitle)
         {
             var resource = string.Format("/_api/web/Lists/GetByTitle('{0}')/Items?$expand=Folder&$select=FileLeafRef", libraryTitle);
-            var response = ExecuteGet(resource);
+            var response = this.ExecuteGet(resource, _baseUrl, _username, _password);
 
             var wrapper = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
             var d = JsonConvert.DeserializeObject<Dictionary<string, object>>(wrapper["d"].ToString());
             var results = JsonConvert.DeserializeObject<List<SPNameValue>>(d["results"].ToString());
 
             var filesOut = results.Select(p => p.FileLeafRef);
+            if(_filesByLibraryCache == null)
+                _filesByLibraryCache = new Dictionary<string, IEnumerable<string>>();
 
-            //foreach (var item in results.Values)
-            //{
-            //    var value = JsonConvert.DeserializeObject<Dictionary<string, string>>(item);
-            //    filesOut.Add(value["Title"]);
-            //}
+            _filesByLibraryCache.Add(libraryTitle, filesOut);
 
             return filesOut;
         }
 
-        private string ExecuteGet(string resource)
+        public IEnumerable<string> GetInternalFieldNames(string libraryTitle, string fileIdResource)
         {
-            var url = _baseUrl + resource;
-            var endpointRequest = (HttpWebRequest)HttpWebRequest.Create(url);
+            var resource = string.Format("/_api/{0}", fileIdResource);
+            var response = this.ExecuteGet(resource, _baseUrl, _username, _password);
 
-            endpointRequest.Method = "GET";
-            endpointRequest.Accept = "application/json;odata=verbose";
-            var cred = new System.Net.NetworkCredential(_username, _password);
-            endpointRequest.Credentials = cred;
-            var endpointResponse = (HttpWebResponse)endpointRequest.GetResponse();
+            var wrapper = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+            var d = JsonConvert.DeserializeObject<Dictionary<string, object>>(wrapper["d"].ToString());
 
-            var webResponse = endpointRequest.GetResponse();
-            var webStream = webResponse.GetResponseStream();
-            var responseReader = new StreamReader(webStream);
-            var response = responseReader.ReadToEnd();
-
-            return response;
+            return new List<string>();
         }
-
     }
 
     public class SPNameValue
     {
+        public string id {get; set;}
         public string FileLeafRef { get; set; }
     }
 }

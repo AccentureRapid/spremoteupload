@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharePointRestLibrary.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -35,14 +36,14 @@ namespace SharePointRestLibrary.Data
                 throw new ApplicationException("Key column was not found in the select statement.  Did you forget to alias a column?");
         }
 
-        public Dictionary<string, Dictionary<string, string>> GetData(string selectStatement, string keyColumn)
+        public DBRowCollection GetData(string selectStatement, string keyColumn)
         {
-            var dataOut = new Dictionary<string, Dictionary<string, string>>();
+            var dataOut = new DBRowCollection();
             var dataTable = GetDataTable(selectStatement);
             
             foreach (DataRow row in dataTable.Rows)
 	        {
-                var newDataRow = new Dictionary<string, string>();
+                var newDataRow = new DBFieldCollection();
 	            foreach (DataColumn column in dataTable.Columns)
                 {
                     if(!column.ColumnName.Equals(keyColumn, StringComparison.InvariantCultureIgnoreCase))

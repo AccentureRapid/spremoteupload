@@ -6,8 +6,11 @@ using System.Threading.Tasks;
 
 namespace SharePointRestLibrary.Configuration
 {
-    public interface IColumnMappings
+    public class DBFieldCollection : Dictionary<string, string>
     {
-        bool IsValid();
+    }
+    public class DBRowCollection : Dictionary<string, DBFieldCollection>
+    {
+
     }
 }
