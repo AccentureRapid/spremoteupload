@@ -17,7 +17,7 @@ namespace SharePointRestLibrary.Tests
         public void GetFileCountByLocationTest()
         {
             //arrange
-            ISharePointFactFetcher fetcher = new SharePointFactFetcher (
+            ISharePointUploader fetcher = new SharePointUploader (
                 _testUserId,
                 _testPassword,
                 _testBaseUrl
@@ -34,7 +34,7 @@ namespace SharePointRestLibrary.Tests
         public void GetFilesByLocationTest()
         {
             //arrange
-            ISharePointFactFetcher fetcher = new SharePointFactFetcher(
+            ISharePointUploader fetcher = new SharePointUploader(
                 _testUserId,
                 _testPassword,
                 _testBaseUrl
@@ -51,7 +51,7 @@ namespace SharePointRestLibrary.Tests
         public void SPFileExistInLibraryTest()
         {            
             //arrange
-            ISharePointFactFetcher fetcher = new SharePointFactFetcher(
+            ISharePointUploader fetcher = new SharePointUploader(
                 _testUserId,
                 _testPassword,
                 _testBaseUrl

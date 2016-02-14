@@ -4,15 +4,17 @@ using SharePointRestLibrary.Configuration;
 using SharePointRestLibrary.Data;
 using System.Collections.Generic;
 using SharePointRestLibrary.Extensions;
+using SharePointRestLibrary.SharePoint;
 
 namespace SharePointRestLibrary.Tests
 {
     [TestClass]
     public class SharePointUploadTests
     {
-        private string _testUserId = "baaqmd-dev\\sp_farm";
-        private string _testPassword = "P@$$word1!";
-        private string _testBaseUrl = "http://baaqmd-dev.cloudapp.net/sites/RecordCenter";
+        private string _localFolder = "c:\\testDocuments\\";
+        private string _testUserId = "baaqmd\\roger.boone";
+        private string _testPassword = "1.Greatb155";
+        private string _testBaseUrl = "http://records.westus.cloudapp.azure.com/";
         private string _testLibrary = "General Ledger";
         private string _connection = @"Server = rogerb-pc\sqlexpress; Database = baaqmd_files; User Id = sa; Password = 1.password;";
 
@@ -20,6 +22,8 @@ namespace SharePointRestLibrary.Tests
         public void UploadIntegrationTest1()
         {
             //Create mappings from database to sharepoint fields
+            ISharePointUploader uploader = new SharePointUploader(_testUserId, _testPassword, _testBaseUrl);
+            
             var mappings = new SPColumnMappings("file_name");
             mappings.AddMapping("Title", "Title", "Text");
             mappings.AddMapping("Book Number", "Book_x0020_Number", "Number");
@@ -33,7 +37,7 @@ namespace SharePointRestLibrary.Tests
             //Uploader functionality
             foreach (SPDataRecord record in records)
             {
-                record.Upload(@"c:\testDocuments", _testBaseUrl, _testLibrary, _testUserId, _testPassword);
+                uploader.UploadFile(_localFolder, record, _testLibrary, string.Empty);
             }           
         }
     }
