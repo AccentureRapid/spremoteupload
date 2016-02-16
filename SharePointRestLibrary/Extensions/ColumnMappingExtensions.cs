@@ -28,12 +28,17 @@ namespace SharePointRestLibrary.Extensions
 
             foreach (SPColumnMapping item in mapping)
             {
-                dataRecordOut.Add(new SPDataField()
-                {
-                    SPColumnInternalName = item.SharePointDestinationField,
-                    SPDataType = item.SharePointDataType,
-                    SPValue = fieldData[item.DBSourceField].ToString()
-                });
+                var spfield = new SPDataField();
+                spfield.SPColumnInternalName = item.SharePointDestinationField;
+                spfield.SPDataType = item.SharePointDataType;
+
+                try {
+                    spfield.SPValue = fieldData[item.DBSourceField].ToString();
+                } catch {
+                    spfield.SPValue = string.Empty;
+                }
+
+                dataRecordOut.Add(spfield);
             }
             
             return dataRecordOut;

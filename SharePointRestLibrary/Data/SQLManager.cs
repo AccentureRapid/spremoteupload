@@ -43,13 +43,20 @@ namespace SharePointRestLibrary.Data
             
             foreach (DataRow row in dataTable.Rows)
 	        {
-                var newDataRow = new DBFieldCollection();
-	            foreach (DataColumn column in dataTable.Columns)
+                try
                 {
-                    if(!column.ColumnName.Equals(keyColumn, StringComparison.InvariantCultureIgnoreCase))
-                        newDataRow.Add(column.ColumnName, row[column.ColumnName].ToString());
+                    var newDataRow = new DBFieldCollection();
+                    foreach (DataColumn column in dataTable.Columns)
+                    {
+                        if (!column.ColumnName.Equals(keyColumn, StringComparison.InvariantCultureIgnoreCase))
+                            newDataRow.Add(column.ColumnName, row[column.ColumnName].ToString());
+                    }
+                    dataOut.Add(row[keyColumn].ToString(), newDataRow);
                 }
-                dataOut.Add(row[keyColumn].ToString(), newDataRow);
+                catch (Exception ex)
+                {
+                    throw new ApplicationException(string.Format("The file {0} was already found in the dataset.  Please ensure the database is returning distinct filenames.", row[keyColumn].ToString()));
+                }
             }
             return dataOut;
         }

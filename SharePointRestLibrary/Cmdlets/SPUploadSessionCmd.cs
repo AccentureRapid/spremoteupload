@@ -67,7 +67,7 @@ namespace SharePointRestLibrary.Cmdlets
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true,
-            Position = 4,
+            Position = 5,
             HelpMessage = "This is the sharepoint contenttype title")]
         [Alias("SPContentType")]
         public string ContentType { get; set; }
@@ -76,7 +76,7 @@ namespace SharePointRestLibrary.Cmdlets
             Mandatory=true,
             ValueFromPipeline=true,
             ValueFromPipelineByPropertyName=true,
-            Position=5,
+            Position=6,
             HelpMessage="This is the fully credentialed connection string to a sql database.")]
         [Alias("ConnectionString")]
         public string DBConnectionString { get; set; }
@@ -85,7 +85,7 @@ namespace SharePointRestLibrary.Cmdlets
             Mandatory=true,
             ValueFromPipeline=true,
             ValueFromPipelineByPropertyName=true,
-            Position=6,
+            Position=7,
             HelpMessage="Full select statement for getting a list.")]
         [Alias("Sql", "Select")]
         public string SelectStatement { get; set; }
@@ -94,7 +94,7 @@ namespace SharePointRestLibrary.Cmdlets
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true,
-            Position = 7,
+            Position = 8,
             HelpMessage = "The field from the database that represents the filename.")]
         public string FileNameField { get; set; }
 
@@ -109,7 +109,8 @@ namespace SharePointRestLibrary.Cmdlets
                 LibraryTitle = LibraryTitle,
                 LocalFolder = LocalFolder,
                 SelectStatement = SelectStatement,
-                FileNameField = FileNameField
+                FileNameField = FileNameField,
+                ContentType = ContentType
             };
             WriteObject(session);
             base.BeginProcessing();

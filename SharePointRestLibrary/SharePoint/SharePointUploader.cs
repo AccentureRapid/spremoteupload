@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using SharePointRestLibrary.Extensions;
 using Microsoft.SharePoint.Client;
 using SharePointRestLibrary.Configuration;
+using Microsoft.SharePoint.Client.Taxonomy;
 
 namespace SharePointRestLibrary.SharePoint
 {
@@ -22,7 +23,12 @@ namespace SharePointRestLibrary.SharePoint
         private ICredentials _credentials;
         private string _baseUrl;
         private IDictionary<string, IEnumerable<string>> _filesByLibraryCache;
+        private List<ContentType> _ctypes = new List<ContentType>();
         private ClientContext ctx;
+        private List _spList = null;
+        private IDictionary<string, string> _spFieldList = null;
+        private IDictionary<string, TaxonomyField> _spTaxFields = null;
+        private IDictionary<string, IDictionary<string, string>> _terms = null;
 
         public SharePointUploader(string username, string password, string baseUrl)
         {
@@ -31,12 +37,88 @@ namespace SharePointRestLibrary.SharePoint
             _credentials = new NetworkCredential(_username, _password);
             _baseUrl = baseUrl;
             ctx = new ClientContext(_baseUrl);
+            ctx.AuthenticationMode = ClientAuthenticationMode.Default;
+            ctx.Credentials = _credentials;
+        }
+
+        private void LoadSPFieldList(string libraryTitle, ContentType contentType)
+        {
+            _spFieldList = new Dictionary<string,string>();
+            _spTaxFields = new Dictionary<string, TaxonomyField>();
+            
+            ctx.Load(contentType.Fields);
+            ctx.ExecuteQuery();
+
+            foreach (var field in contentType.Fields)
+	        {
+                if (field.TypeAsString.Contains("TaxonomyFieldType"))
+                {
+                    TaxonomyField tField = ctx.CastTo<TaxonomyField>(field);
+                    _spTaxFields[field.Title] = tField;
+                }
+                else
+                {
+                    _spFieldList[field.Title] = field.InternalName;
+                }
+	        }
+        }
+
+        private string GetTermIdForTaxonomyField(TaxonomyField field, string term, ListItem pendingItem,Microsoft.SharePoint.Client.File pendingFile)
+        {
+            if (_terms == null)
+                _terms = new Dictionary<string, IDictionary<string, string>>();
+
+            if (!_terms.Keys.Contains(field.Title))
+                _terms[field.Title] = new Dictionary<string, string>();
+
+            if (_terms[field.Title].Keys.Contains(term))
+                return _terms[field.Title][term].ToString();
+
+            var termId = string.Empty;
+
+            //before we go forward,save pending item
+            pendingItem.Update();
+            ctx.Load(pendingFile);
+            ctx.ExecuteQuery();
+
+            TaxonomySession tSession = TaxonomySession.GetTaxonomySession(ctx);
+            ctx.Load(tSession.TermStores);
+            ctx.ExecuteQuery();
+            TermStore ts = tSession.TermStores.First();
+            TermSet tset = ts.GetTermSet(field.TermSetId);
+
+            LabelMatchInformation lmi = new LabelMatchInformation(ctx);
+
+            lmi.Lcid = 1033;
+            lmi.TrimUnavailable = true;
+            lmi.TermLabel = term;
+
+            TermCollection termMatches = tset.GetTerms(lmi);
+            ctx.Load(tSession);
+            ctx.Load(ts);
+            ctx.Load(tset);
+            ctx.Load(termMatches);
+
+            ctx.ExecuteQuery();
+
+            if (termMatches != null && termMatches.Count() > 0)
+                termId = termMatches.First().Id.ToString();
+
+            _terms[field.Title][term] = termId;
+
+            return termId;
         }
 
         public bool SPFileExistInLibrary(string libraryTitle, string fileName, bool refreshCache = false)
         {
-            if (!_filesByLibraryCache.ContainsKey(libraryTitle) || refreshCache)
-                GetFileCountByLocation(libraryTitle);
+            if (_filesByLibraryCache == null)
+                _filesByLibraryCache = new Dictionary<string, IEnumerable<string>>();
+
+
+            if (_filesByLibraryCache == null || !_filesByLibraryCache.ContainsKey(libraryTitle) || refreshCache)
+            {
+                _filesByLibraryCache[libraryTitle] = GetFilesByLocation(libraryTitle);
+            }
 
             return _filesByLibraryCache[libraryTitle].Contains(fileName, StringComparer.InvariantCultureIgnoreCase);
         }
@@ -58,8 +140,6 @@ namespace SharePointRestLibrary.SharePoint
         public IEnumerable<string> GetFilesByLocation(string libraryTitle)
         {
             var listOut = new List<string>();
-
-            ctx.Credentials = _credentials;
             var web = ctx.Web;
             var list = web.Lists.GetByTitle(libraryTitle);
             ctx.Load(list);
@@ -69,65 +149,86 @@ namespace SharePointRestLibrary.SharePoint
 
             foreach (var item in list.RootFolder.Files)
             {
-                listOut.Add(item.Name);
+                listOut.Add(GetFileNameFromUri(item.ServerRelativeUrl));
             }             
 
             return listOut;
         }
 
+        private string GetFileNameFromUri(string uriIn)
+        {
+            return uriIn.Split('/').Last();
+        }
+
         public void UploadFile(string sourceFolder, SPDataRecord record, string libraryTitle, string contentType)
         {
-            string filepath = sourceFolder + record.FileName;
-            ContentType ct = GetContentType(ctx, libraryTitle, contentType);
-
-            var info = new FileInfo(filepath);
-            var filesize = info.Length;
-            if (filesize < 20000000)
+            string filepath = sourceFolder.Trim() + record.FileName.Trim();
+            if (System.IO.File.Exists(filepath))
             {
-                var fileData = System.IO.File.ReadAllBytes(sourceFolder + record.FileName);
-                ctx.Credentials = _credentials;
-                var fi = new FileCreationInformation();
-                var list = ctx.Web.Lists.GetByTitle(libraryTitle);
-                ctx.Load(list.RootFolder);
-
-                var fileUrl = record.FileName;
-                fi.Overwrite = false;
-                fi.Url = fileUrl;
-                fi.Content = fileData;
-                var uploadedFile = list.RootFolder.Files.Add(fi);
-                var listItem = uploadedFile.ListItemAllFields;
-
-                foreach (var spfield in record)
+                if (!SPFileExistInLibrary(libraryTitle, record.FileName))
                 {
-                    listItem[spfield.SPColumnInternalName] = spfield.SPValue;
-                }
+                    var ct = GetContentType(ctx, libraryTitle, contentType);
+                    if(_spFieldList == null)
+                        LoadSPFieldList(libraryTitle, ct);
 
-                listItem.Update();
-                ctx.Load(uploadedFile);
-                ctx.ExecuteQuery();
-            }
-            else
+                    if (_spList == null)
+                    {
+                        _spList = ctx.Web.Lists.GetByTitle(libraryTitle);
+                        ctx.Load(_spList.RootFolder);
+                        ctx.ExecuteQuery();
+                    }
+
+                    if (ctx.HasPendingRequest)
+                        ctx.ExecuteQuery();
+
+                    var urlTarget = string.Format("{0}/{1}", _spList.RootFolder.ServerRelativeUrl, record.FileName.Trim());
+
+                    Microsoft.SharePoint.Client.File.SaveBinaryDirect(
+                        ctx, urlTarget, new FileStream(filepath, FileMode.Open, FileAccess.Read), false);
+
+                    var uploadedFile = _spList.RootFolder.Files.GetByUrl(urlTarget);
+                    var listItem = uploadedFile.ListItemAllFields;
+                    listItem["ContentTypeId"] = ct.Id.ToString();
+
+                    foreach (var spfield in record)
+                    {
+                        try
+                        {
+                            if(spfield.SPDataType != "Taxonomy")
+                                listItem[_spFieldList[spfield.SPColumnInternalName]] = spfield.SPValue;
+                            else
+                            {
+                                try
+                                {
+                                    listItem[_spTaxFields[spfield.SPColumnInternalName].InternalName] = GetTermIdForTaxonomyField(_spTaxFields[spfield.SPColumnInternalName], spfield.SPValue, listItem, uploadedFile);
+                                }
+                                catch { }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+                    }
+
+                    try
+                    {
+                        listItem.Update();
+                        ctx.Load(uploadedFile);
+                        ctx.ExecuteQuery();
+                    }
+                    catch (Exception ex2)
+                    {
+                        Console.WriteLine(ex2.Message);
+                    }
+                }
+                else
+                {
+                    throw new ApplicationException(string.Format("File {0} already exists on target.  Skipping.", record.FileName));
+                }
+            } else
             {
-                ctx.Credentials = _credentials;
-                
-                var list = ctx.Web.Lists.GetByTitle(libraryTitle);
-                ctx.Load(list.RootFolder);
-                ctx.ExecuteQuery();
-                Microsoft.SharePoint.Client.File.SaveBinaryDirect(
-                    ctx, list.RootFolder.ServerRelativeUrl, new FileStream(filepath, FileMode.Open, FileAccess.Read), false);
-
-                var uploadedFile = list.RootFolder.Files.GetByUrl(list.RootFolder.ServerRelativeUrl + record.FileName);
-                var listItem = uploadedFile.ListItemAllFields;
-                listItem["ContentTypeId"] = ct.Id.ToString();
-
-                foreach (var spfield in record)
-                {
-                    listItem[spfield.SPColumnInternalName] = spfield.SPValue;
-                }
-
-                listItem.Update();
-                ctx.Load(uploadedFile);
-                ctx.ExecuteQuery();
+                throw new ApplicationException(string.Format("File {0} not found on disk.  Skipping.", record.FileName));
             }
         }
         /// <summary>
@@ -139,14 +240,22 @@ namespace SharePointRestLibrary.SharePoint
         /// <returns></returns>
         private ContentType GetContentType(ClientContext ctx,string libraryName, string contentType)
         {
-            var docs = ctx.Web.Lists.GetByTitle(libraryName);
-            ContentTypeCollection listContentTypes = docs.ContentTypes;
-            ctx.Load(listContentTypes, types => types.Include
-                     (type => type.Id, type => type.Name,
-                       type => type.Parent));
-            var result = ctx.LoadQuery(listContentTypes.Where(c => c.Name == contentType));
-            ctx.ExecuteQuery();
-            ContentType targetDocumentSetContentType = result.FirstOrDefault();
+            if (_ctypes.Count == 0)
+            {
+                var docs = ctx.Web.Lists.GetByTitle(libraryName);
+                ContentTypeCollection listContentTypes = docs.ContentTypes;
+                ctx.Load(listContentTypes, types => types.Include
+                         (type => type.Id, type => type.Name,
+                           type => type.Parent));
+                var results = ctx.LoadQuery(listContentTypes);
+                ctx.ExecuteQuery();
+
+                foreach (var item in results)
+                {
+                    _ctypes.Add(item);
+                }
+            }
+            var targetDocumentSetContentType = _ctypes.Single(p=>p.Name.Equals(contentType));
             return targetDocumentSetContentType;
         }
 
@@ -154,5 +263,109 @@ namespace SharePointRestLibrary.SharePoint
         {
             throw new NotImplementedException();
         }
+
+//        public void SetManagedMetaDataField(string siteUrl,
+//            string listName,
+//            string itemID,
+//            string fieldName,
+//            string term)
+//        {
+ 
+//            ClientContext clientContext = ctx;
+//            List list = clientContext.Web.Lists.GetByTitle(listName);
+//            FieldCollection fields = list.Fields;
+//            Field field = fields.GetByInternalNameOrTitle(fieldName);
+                                  
+//            CamlQuery camlQueryForItem = new CamlQuery();
+//            string queryXml = @"<view>
+//                                <query>
+//                                    <where>
+//                                        <eq>
+//                                            <fieldref name="ID">
+//                                            <value type="Counter">!@itemid</value>
+//                                        </fieldref>
+//                                    </eq>
+//                                </where>
+//                            </query>";
+ 
+//            camlQueryForItem.ViewXml = queryXml.Replace("!@itemid", itemID);
+ 
+//            ListItemCollection listItems = list.GetItems(camlQueryForItem);
+ 
+ 
+//            clientContext.Load(listItems, items =>; items.Include(i =>; i[fieldName]));
+//            clientContext.Load(fields);
+//            clientContext.Load(field);
+//            clientContext.ExecuteQuery();
+             
+//            TaxonomyField txField = clientContext.CastTo<taxonomyfield>(field);
+//            string termId = GetTermIdForTerm(term, txField.TermSetId, clientContext);
+ 
+//            ListItem item = listItems[0];
+                       
+//            TaxonomyFieldValueCollection termValues = null;
+//            TaxonomyFieldValue termValue = null;
+ 
+//            string termValueString = string.Empty;
+ 
+//            if (txField.AllowMultipleValues)
+//            {
+ 
+//                termValues = item[fieldName] as TaxonomyFieldValueCollection;
+//                foreach (TaxonomyFieldValue tv in termValues)
+//                {
+//                    termValueString += tv.WssId + ";#" + tv.Label + "|" + tv.TermGuid + ";#";               
+//                }
+ 
+//                termValueString += "-1;#" + term + "|" + termId;
+//                termValues = new TaxonomyFieldValueCollection(clientContext, termValueString, txField);
+//                txField.SetFieldValueByValueCollection(item,termValues);
+                 
+//            }
+//            else
+//            {
+//                termValue = new TaxonomyFieldValue();
+//                termValue.Label = term;
+//                termValue.TermGuid = termId;
+//                termValue.WssId = -1;
+//                txField.SetFieldValueByValue(item, termValue);
+//            }
+ 
+//            item.Update();           
+//            clientContext.Load(item);
+//            clientContext.ExecuteQuery();
+//        }
+
+
+        //public static string GetTermIdForTerm(string term,
+        //    Guid termSetId, ClientContext clientContext)
+        //{
+        //    string termId = string.Empty;
+
+        //    TaxonomySession tSession = TaxonomySession.GetTaxonomySession(clientContext);
+        //    TermStore ts = tSession.GetDefaultSiteCollectionTermStore();
+        //    TermSet tset = ts.GetTermSet(termSetId);
+
+        //    LabelMatchInformation lmi = new LabelMatchInformation(clientContext);
+
+        //    lmi.Lcid = 1033;
+        //    lmi.TrimUnavailable = true;
+        //    lmi.TermLabel = term;
+
+        //    TermCollection termMatches = tset.GetTerms(lmi);
+        //    clientContext.Load(tSession);
+        //    clientContext.Load(ts);
+        //    clientContext.Load(tset);
+        //    clientContext.Load(termMatches);
+
+        //    clientContext.ExecuteQuery();
+
+        //    if (termMatches != null && termMatches.Count() > 0)
+        //        termId = termMatches.First().Id.ToString();
+
+        //    return termId;
+
+        //}
+
     }
 }

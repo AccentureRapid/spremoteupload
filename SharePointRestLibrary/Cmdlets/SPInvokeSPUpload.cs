@@ -48,8 +48,15 @@ namespace SharePointRestLibrary.Cmdlets
                 }
                 catch (Exception ex)
                 {
-                    Session.ErroredFiles.Add(record.FileName, ex.Message);
-                    Console.WriteLine(string.Format("Could not upload {0} : Error {1}", record.FileName, ex.Message));
+                    if (ex.Message.Contains("Skip"))
+                    {
+                        Session.SkippedFiles.Add(record.FileName);
+                    }
+                    else
+                    {
+                        Session.ErroredFiles.Add(record.FileName, ex.Message);
+                        Console.WriteLine(string.Format("Could not upload {0} : Error {1}", record.FileName, ex.Message));
+                    }
                 }
             }
 
