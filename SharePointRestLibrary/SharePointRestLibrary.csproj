@@ -114,7 +114,6 @@
     <Compile Include="Data\ISQLManager.cs" />
     <Compile Include="Data\SQLManager.cs" />
     <Compile Include="Extensions\ColumnMappingExtensions.cs" />
-    <Compile Include="Globals.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SharePoint\ISharePointUploader.cs" />
     <Compile Include="SharePoint\SharePointUploader.cs" />

@@ -20,7 +20,6 @@ namespace SharePointRestLibrary.Data
             
         }
 
-
         public List<string> GetColumnNames(string selectStatement, string keyColumn)
         {
             var listOut = new List<string>();

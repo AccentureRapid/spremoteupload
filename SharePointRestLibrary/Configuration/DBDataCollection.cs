@@ -9,8 +9,8 @@ namespace SharePointRestLibrary.Configuration
     public class DBFieldCollection : Dictionary<string, string>
     {
     }
+
     public class DBRowCollection : Dictionary<string, DBFieldCollection>
     {
-
     }
 }
