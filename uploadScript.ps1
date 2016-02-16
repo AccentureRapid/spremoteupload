@@ -4,7 +4,7 @@ ipmo .\SharePointRestLibrary.dll
 $SPUploadSession = New-SPUploadSession `
     -LocalFolder "d:\" `
     -DomainUserName "baaqmd\roger.boone" `
-    -DomainPassword "1.Greatb155" `
+    -DomainPassword -
     -BaseSharePointUrl "http://baaqmd-records.westus.cloudapp.azure.com/permitting/applications/" `
     -LibraryTitle "Permit Applications" `
     -ContentType "Permit Application" `
