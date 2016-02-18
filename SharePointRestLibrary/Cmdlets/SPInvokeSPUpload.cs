@@ -2,6 +2,7 @@
 using SharePointRestLibrary.Data;
 using SharePointRestLibrary.SharePoint;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
@@ -38,30 +39,82 @@ namespace SharePointRestLibrary.Cmdlets
             var sm = new SQLManager(Session.DBConnectionString);
             var records = sm.GetData(sql, Session.FileNameField).ToSPDataRecords(mappings);
 
+
+            var filenameList = Directory.EnumerateFiles(Session.LocalFolder).Select(p=>Path.GetFileName(p)).ToList<string>();
+            bool recordFoundFlag = false;
             //Uploader functionality
-            foreach (SPDataRecord record in records)
+            foreach (var filename in filenameList)
             {
-                try
-                {
-                    Console.WriteLine(string.Format("Uploading File {0} at {1}", record.FileName, DateTime.Now));
-                    uploader.UploadFile(Session.LocalFolder, record, Session.LibraryTitle, Session.ContentType);
+                
+
+                if(IsRecordAvailable(records, filename)) {
+                    var record = records.Single(p => p.FileName.Equals(filename, StringComparison.InvariantCultureIgnoreCase));
+
+                    //handle the uploading
+                    Console.WriteLine(string.Format("Uploading File {0} at {1} - {2}", filename, DateTime.Now, "with Metadata"));
+                    try
+                    {
+                        uploader.UploadFile(Session.LocalFolder, record, Session.LibraryTitle, Session.ContentType);
+                        MoveToUploaded(Session.LocalFolder, filename);
+                    }
+                    catch (Exception ex)
+                    {
+                        HandleError(ex.Message, filename);
+                    }
+
                 }
-                catch (Exception ex)
+                else 
                 {
-                    if (ex.Message.Contains("Skip"))
-                    {
-                        Session.SkippedFiles.Add(record.FileName);
-                    }
-                    else
-                    {
-                        Session.ErroredFiles.Add(record.FileName, ex.Message);
-                        Console.WriteLine(string.Format("Could not upload {0} : Error {1}", record.FileName, ex.Message));
-                    }
+                    Session.ErroredFiles.Add(filename, "No Metadata found");
+                    //Console.WriteLine(string.Format("Uploading File {0} at {1} - {2}", filename, DateTime.Now, "NO Metadata found."));
+                    //try 
+                    //{
+                    //    uploader.UploadFile(Session.LocalFolder, filename, Session.LibraryTitle, Session.ContentType);
+                    //} 
+                    //catch (Exception ex2)
+                    //{
+                    //    HandleError(ex2.Message, filename);
+                    //}
                 }
             }
 
             WriteObject(Session);
             base.BeginProcessing();
+        }
+
+        private void MoveToUploaded(string sourcePath, string filename)
+        {
+            Console.WriteLine("Moving File to completed folder.");
+            var targetFolder = sourcePath + @"completed\";
+            if (!Directory.Exists(targetFolder))
+                System.IO.Directory.CreateDirectory(targetFolder);
+
+            File.Move(sourcePath + filename, targetFolder + filename);
+        }
+        
+
+        private void HandleError(string message, string filename) {
+            if (message.Contains("Skip"))
+                Session.SkippedFiles.Add(filename);
+            else
+            {
+                Session.ErroredFiles.Add(filename, message);
+                Console.WriteLine(string.Format("Could not upload {0} : Error {1}", filename, message));
+            }
+        }
+
+        private bool IsRecordAvailable(IEnumerable<SPDataRecord> records, string fileName) 
+        {
+            try 
+            {
+                var record = records.Single(p => p.FileName.Equals(fileName.Trim(), StringComparison.InvariantCultureIgnoreCase));
+                return true;
+            } 
+            catch {
+                Console.WriteLine(string.Format("No database record, Skipping {0}", fileName));
+                return false;
+            }
+
         }
 
         private bool IsUploadable()
