@@ -157,12 +157,12 @@ namespace SharePointRestLibrary.SharePoint
             return uriIn.Split('/').Last();
         }
 
-        public void UploadFile(string sourceFolder, string filename, string libraryTitle, string contentType)
+        public void UploadFile(string sourceFolder, string filename, string libraryTitle, string contentType, bool overwrite=false)
         {
-            if (!SPFileExistInLibrary(libraryTitle, filename))
+            if (!SPFileExistInLibrary(libraryTitle, filename) || overwrite)
             {
                 var ct = GetContentType(ctx, libraryTitle, contentType);
-                var urlTarget = PushFileToSP(sourceFolder, filename, libraryTitle);
+                var urlTarget = PushFileToSP(sourceFolder, filename, libraryTitle, overwrite);
                 var uploadedFile = _spList.RootFolder.Files.GetByUrl(urlTarget);
                 var listItem = uploadedFile.ListItemAllFields;
                 listItem["ContentTypeId"] = ct.Id.ToString();
@@ -178,7 +178,7 @@ namespace SharePointRestLibrary.SharePoint
         /// <param name="libraryTitle"></param>
         /// <param name="contentType"></param>
         /// <returns>url of the file uploaded in sharepoint.</returns>
-        private string PushFileToSP(string sourceFolder, string filename, string libraryTitle)
+        private string PushFileToSP(string sourceFolder, string filename, string libraryTitle, bool overwrite = false)
         {
             string filepath = sourceFolder.Trim() + filename;
 
@@ -195,8 +195,13 @@ namespace SharePointRestLibrary.SharePoint
 
             var urlTarget = string.Format("{0}/{1}", _spList.RootFolder.ServerRelativeUrl, filename.Trim());
 
-            Microsoft.SharePoint.Client.File.SaveBinaryDirect(
-                ctx, urlTarget, new FileStream(filepath, FileMode.Open, FileAccess.Read), false);
+            using (var file = new FileStream(filepath, FileMode.Open, FileAccess.Read))
+            {
+                Microsoft.SharePoint.Client.File.SaveBinaryDirect(
+                    ctx, urlTarget, file, overwrite);
+    
+                file.Close();
+            }
 
             return urlTarget;
         }
@@ -234,7 +239,7 @@ namespace SharePointRestLibrary.SharePoint
 
         }
 
-        public void UploadFile(string sourceFolder, SPDataRecord record, string libraryTitle, string contentType)
+        public void UploadFile(string sourceFolder, SPDataRecord record, string libraryTitle, string contentType, bool overwrite = false)
         {
             var ct = GetContentType(ctx, libraryTitle, contentType);
 
@@ -243,13 +248,15 @@ namespace SharePointRestLibrary.SharePoint
 
             if (!SPFileExistInLibrary(libraryTitle, record.FileName))
             {
-                var urlTarget = PushFileToSP(sourceFolder, record.FileName, libraryTitle);
+                var urlTarget = PushFileToSP(sourceFolder, record.FileName, libraryTitle, overwrite);
 
                 ApplyMetadataRecordToListItem(record, urlTarget, ct);
             }
             else
             {
-                throw new ApplicationException(string.Format("File {0} already exists on target.  Skipping.", record.FileName));
+                var urlTarget = string.Format("{0}/{1}", _spList.RootFolder.ServerRelativeUrl, record.FileName.Trim());
+
+                ApplyMetadataRecordToListItem(record, urlTarget, ct);
             }
 
         }

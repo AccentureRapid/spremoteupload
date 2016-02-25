@@ -62,19 +62,19 @@ namespace SharePointRestLibrary.Tests
             var records = sm.GetData(sql, session.FileNameField).ToSPDataRecords(mappings);
 
             //Uploader functionality
-            foreach (SPDataRecord record in records)
-            {
-                try
-                {
-                    Console.WriteLine(string.Format("Uploading File {0} at {1}", record.FileName, DateTime.Now));
-                    uploader.UploadFile(session.LocalFolder, record, session.LibraryTitle, session.ContentType);
-                }
-                catch (Exception ex)
-                {
-                    session.ErroredFiles.Add(record.FileName, ex.Message);
-                    Console.WriteLine(string.Format("Could not upload {0} : Error {1}", record.FileName, ex.Message));
-                }
-            }    
+            //foreach (SPDataRecord record in records)
+            //{
+            //    try
+            //    {
+            //        Console.WriteLine(string.Format("Uploading File {0} at {1}", record.FileName, DateTime.Now));
+            //        uploader.UploadFile(session.LocalFolder, record, session.LibraryTitle, session.ContentType, session.OverwriteIfExists);
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        session.ErroredFiles.Add(record.FileName, ex.Message);
+            //        Console.WriteLine(string.Format("Could not upload {0} : Error {1}", record.FileName, ex.Message));
+            //    }
+            //}    
         }
     }
 }

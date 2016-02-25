@@ -29,6 +29,8 @@ namespace SharePointRestLibrary.Cmdlets
 
         public string FileNameField { get; set; }
 
+        public bool OverwriteIfExists { get; set; }
+
         public string ContentType { get; set; }
 
         public Dictionary<string, string> ErroredFiles { get; set; }

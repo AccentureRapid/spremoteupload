@@ -54,7 +54,7 @@ namespace SharePointRestLibrary.Cmdlets
                     Console.WriteLine(string.Format("Uploading File {0} at {1} - {2}", filename, DateTime.Now, "with Metadata"));
                     try
                     {
-                        uploader.UploadFile(Session.LocalFolder, record, Session.LibraryTitle, Session.ContentType);
+                        uploader.UploadFile(Session.LocalFolder, record, Session.LibraryTitle, Session.ContentType, Session.OverwriteIfExists);
                         MoveToUploaded(Session.LocalFolder, filename);
                     }
                     catch (Exception ex)

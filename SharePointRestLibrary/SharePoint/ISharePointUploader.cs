@@ -12,7 +12,7 @@ namespace SharePointRestLibrary.SharePoint
         IEnumerable<string> GetFilesByLocation(string libraryTitle);
         int GetFileCountByLocation(string libraryTitle);
         bool SPFileExistInLibrary(string libraryTitle, string fileName, bool refreshCache=false);
-        void UploadFile(string sourceFolder, SPDataRecord record, string libraryTitle, string contentType);
-        void UploadFile(string sourceFolder, string filename, string libraryTitle, string contentType);
+        void UploadFile(string sourceFolder, SPDataRecord record, string libraryTitle, string contentType, bool overwrite);
+        void UploadFile(string sourceFolder, string filename, string libraryTitle, string contentType, bool overwrite);
     }
 }

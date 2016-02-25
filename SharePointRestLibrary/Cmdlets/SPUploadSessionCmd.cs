@@ -98,6 +98,15 @@ namespace SharePointRestLibrary.Cmdlets
             HelpMessage = "The field from the database that represents the filename.")]
         public string FileNameField { get; set; }
 
+        [Parameter(
+            Mandatory = true,
+            ValueFromPipeline = true,
+            ValueFromPipelineByPropertyName = true,
+            Position = 9,
+            HelpMessage = "Overwrite if file already exists.")]
+        public bool OverwriteIfExists { get; set; }
+        
+
         protected override void BeginProcessing()
         {
             var session = new SPUploadSession()
@@ -110,7 +119,8 @@ namespace SharePointRestLibrary.Cmdlets
                 LocalFolder = LocalFolder,
                 SelectStatement = SelectStatement,
                 FileNameField = FileNameField,
-                ContentType = ContentType
+                ContentType = ContentType,
+                OverwriteIfExists = OverwriteIfExists
             };
             WriteObject(session);
             base.BeginProcessing();
